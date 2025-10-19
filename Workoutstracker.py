@@ -2,89 +2,91 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
-import os
 from datetime import datetime
-import json
+import os
 import hashlib
+import json
 
-# --- CONFIG ---
-BASE_FOLDER = os.path.join(os.getcwd(), "user_folders")  # All user data
+# --------- Setup ---------
+BASE_FOLDER = "user_folders"
 os.makedirs(BASE_FOLDER, exist_ok=True)
-USER_DB_FILE = os.path.join(BASE_FOLDER, "users.json")  # store usernames + hashed passwords
 st.set_page_config(page_title="🏋️ Gym Tracker", layout="wide")
 
-# --- SESSION STATE ---
+# --------- Session state defaults ---------
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "username" not in st.session_state:
     st.session_state.username = ""
+if "users" not in st.session_state:
+    st.session_state.users = {}
 
-# --- HELPER FUNCTIONS ---
-def hash_password(password):
-    return hashlib.sha256(password.encode()).hexdigest()
+# --------- Load users ---------
+USERS_FILE = os.path.join(BASE_FOLDER, "users.json")
+if os.path.exists(USERS_FILE):
+    with open(USERS_FILE, "r") as f:
+        st.session_state.users = json.load(f)
+else:
+    st.session_state.users = {}
 
-def load_users():
-    if os.path.exists(USER_DB_FILE):
-        with open(USER_DB_FILE, "r") as f:
-            return json.load(f)
-    return {}
+# --------- Helper functions ---------
+def hash_password(pwd):
+    return hashlib.sha256(pwd.encode()).hexdigest()
 
-def save_users(users):
-    with open(USER_DB_FILE, "w") as f:
-        json.dump(users, f)
+def save_users():
+    with open(USERS_FILE, "w") as f:
+        json.dump(st.session_state.users, f)
 
-def get_user_csv(username):
-    user_path = os.path.join(BASE_FOLDER, username)
-    os.makedirs(user_path, exist_ok=True)
-    return os.path.join(user_path, "workouts.csv")
+def create_account(username, password):
+    if username in st.session_state.users:
+        st.error("User already exists.")
+        return False
+    st.session_state.users[username] = hash_password(password)
+    save_users()
+    os.makedirs(os.path.join(BASE_FOLDER, username), exist_ok=True)
+    st.success("Account created! Please log in.")
+    return True
 
-# --- LOAD USERS ---
-users = load_users()
+def login_user(username, password):
+    if username not in st.session_state.users:
+        st.error("User does not exist.")
+        return False
+    if st.session_state.users[username] != hash_password(password):
+        st.error("Incorrect password.")
+        return False
+    st.session_state.logged_in = True
+    st.session_state.username = username
+    st.success(f"Logged in as {username}")
+    return True
 
-# --- LOGIN / CREATE ACCOUNT UI ---
+def logout_user():
+    st.session_state.logged_in = False
+    st.session_state.username = ""
+
+# --------- Login / Create Account ---------
 if not st.session_state.logged_in:
-    st.title("🏋️ Gym Tracker")
-    choice = st.sidebar.radio("Choose Action", ["Login", "Create Account"])
+    st.sidebar.header("🔑 Login or Create Account")
+    action = st.sidebar.radio("Action", ["Login", "Create Account"])
 
-    if choice == "Login":
-        username = st.text_input("Username")
-        password = st.text_input("Password", type="password")
-        if st.button("Login"):
-            if username in users and users[username] == hash_password(password):
-                st.session_state.logged_in = True
-                st.session_state.username = username
-                st.success(f"Welcome {username}!")
-                st.experimental_rerun()
-            else:
-                st.error("Invalid username or password.")
+    username_input = st.sidebar.text_input("Username")
+    password_input = st.sidebar.text_input("Password", type="password")
 
-    elif choice == "Create Account":
-        new_username = st.text_input("Username")
-        new_password = st.text_input("Password", type="password")
-        confirm_password = st.text_input("Confirm Password", type="password")
-        if st.button("Create Account"):
-            if not new_username or not new_password:
-                st.error("Username and password cannot be empty")
-            elif new_username in users:
-                st.error("Username already exists")
-            elif new_password != confirm_password:
-                st.error("Passwords do not match")
-            else:
-                users[new_username] = hash_password(new_password)
-                save_users(users)
-                # Create user's folder and empty CSV
-                csv_file = get_user_csv(new_username)
-                if not os.path.exists(csv_file):
-                    pd.DataFrame(columns=["Date", "Exercise", "Weight", "Reps"]).to_csv(csv_file, index=False)
-                st.success(f"Account created for {new_username}! You can now login.")
+    if action == "Login" and st.sidebar.button("Login"):
+        login_user(username_input, password_input)
 
-# --- MAIN APP ---
-if st.session_state.logged_in:
-    username = st.session_state.username
-    st.title(f"🏋️ Gym Tracker - {username}")
+    if action == "Create Account" and st.sidebar.button("Create"):
+        create_account(username_input, password_input)
 
-    # Load user CSV
-    csv_file = get_user_csv(username)
+# --------- Main App ---------
+else:
+    st.sidebar.write(f"👤 Logged in as: {st.session_state.username}")
+    if st.sidebar.button("Logout"):
+        logout_user()
+
+    # --------- Paths and CSV ---------
+    user_folder = os.path.join(BASE_FOLDER, st.session_state.username)
+    os.makedirs(user_folder, exist_ok=True)
+    csv_file = os.path.join(user_folder, "workouts.csv")
+
     if os.path.exists(csv_file):
         df = pd.read_csv(csv_file)
         df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
@@ -92,8 +94,8 @@ if st.session_state.logged_in:
     else:
         df = pd.DataFrame(columns=["Date", "Exercise", "Weight", "Reps"])
 
-    # --- LOG WORKOUT ---
-    st.sidebar.header("Log Workout")
+    # --------- Log Workout ---------
+    st.sidebar.header("💪 Log Workout")
     date = st.sidebar.date_input("Date", datetime.now())
 
     existing_exercises = df["Exercise"].unique().tolist()
@@ -111,7 +113,8 @@ if st.session_state.logged_in:
         if exercise:
             new_row = pd.DataFrame([[date, exercise, weight, reps]],
                                    columns=["Date", "Exercise", "Weight", "Reps"])
-            df = pd.concat([df, new_row]).drop_duplicates(subset=["Date", "Exercise"], keep="last")
+            df = pd.concat([df, new_row]).drop_duplicates(
+                subset=["Date", "Exercise"], keep="last")
             df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
             df = df.dropna(subset=["Date", "Weight", "Reps"])
             df["Date"] = df["Date"].dt.strftime("%Y-%m-%d")
@@ -120,72 +123,71 @@ if st.session_state.logged_in:
         else:
             st.sidebar.error("Exercise name cannot be empty.")
 
-    # --- SELECT EXERCISES TO PLOT ---
+    # --------- Exercise filter ---------
     exercise_list = df["Exercise"].unique().tolist()
-    selected_exercises = st.multiselect("Select Exercises to Plot", exercise_list, default=exercise_list)
+    selected_exercises = st.multiselect(
+        "Select Exercises to Plot", exercise_list, default=exercise_list)
 
-    # --- INDIVIDUAL EXERCISE CHARTS ---
-    st.header(f"{username} - Workout Progress")
+    # --------- Individual exercise charts ---------
+    st.header(f"{st.session_state.username} - Workout Progress")
     for exercise_name in selected_exercises:
         data = df[df["Exercise"] == exercise_name].sort_values("Date")
         if data.empty:
             continue
+
         data["Date"] = pd.to_datetime(data["Date"])
         fig, ax1 = plt.subplots(figsize=(8, 4))
-        ax1.plot(data["Date"], data["Weight"], marker="o", color="tab:blue", label="Weight")
+        ax1.plot(data["Date"], data["Weight"], marker="o", color="tab:blue")
         ax1.set_xlabel("Date")
         ax1.set_ylabel("Weight (kg)", color="tab:blue")
         ax1.tick_params(axis="y", labelcolor="tab:blue")
         ax1.grid(True, linestyle="--", alpha=0.6)
 
         ax2 = ax1.twinx()
-        ax2.plot(data["Date"], data["Reps"], marker="x", linestyle="--", color="tab:red", label="Reps")
+        ax2.plot(data["Date"], data["Reps"], marker="x", linestyle="--", color="tab:red")
         ax2.set_ylabel("Reps", color="tab:red")
         ax2.tick_params(axis="y", labelcolor="tab:red")
 
         ax1.xaxis.set_major_locator(mdates.AutoDateLocator())
         ax1.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d"))
         fig.autofmt_xdate(rotation=45)
-        ax1.set_title(f"{username} - {exercise_name}")
+
+        ax1.set_title(f"{st.session_state.username} - {exercise_name}")
         st.pyplot(fig)
 
-    # --- BODYWEIGHT CHART ---
+    # --------- BodyWeight chart ---------
     if "BodyWeight" in df["Exercise"].unique():
         bw_data = df[df["Exercise"] == "BodyWeight"].sort_values("Date")
         if not bw_data.empty:
             bw_data["Date"] = pd.to_datetime(bw_data["Date"])
-            st.header(f"{username} - BodyWeight Progress")
+            st.header(f"{st.session_state.username} - BodyWeight Progress")
+
             fig, ax = plt.subplots(figsize=(8, 4))
             ax.plot(bw_data["Date"], bw_data["Weight"], marker="s", color="tab:green")
             ax.set_xlabel("Date")
             ax.set_ylabel("Weight (kg)")
-            ax.set_title(f"{username} - BodyWeight")
+            ax.set_title(f"{st.session_state.username} - BodyWeight")
             ax.grid(True, linestyle="--", alpha=0.6)
             ax.xaxis.set_major_locator(mdates.AutoDateLocator())
             ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d"))
             fig.autofmt_xdate(rotation=45)
             st.pyplot(fig)
 
-    # --- COMBINED CHART ---
+    # --------- Combined chart ---------
     if not df.empty:
-        st.header(f"{username} - All Exercises Combined")
+        st.header(f"{st.session_state.username} - All Exercises Combined")
         plt.figure(figsize=(10, 5))
         for exercise_name, data in df.groupby("Exercise"):
             data = data.sort_values("Date")
             data["Date"] = pd.to_datetime(data["Date"])
-            marker = "s" if exercise_name == "BodyWeight" else "o"
-            plt.plot(data["Date"], data["Weight"], marker=marker, label=exercise_name)
+            if exercise_name == "BodyWeight":
+                plt.plot(data["Date"], data["Weight"], marker="s", label=exercise_name)
+            else:
+                plt.plot(data["Date"], data["Weight"], marker="o", label=exercise_name)
         plt.xlabel("Date")
         plt.ylabel("Weight (kg)")
-        plt.title(f"{username} - Weight Progression All Exercises")
+        plt.title(f"{st.session_state.username} - Weight Progression All Exercises")
         plt.grid(True, linestyle="--", alpha=0.6)
         plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
         plt.gcf().autofmt_xdate(rotation=45)
         st.pyplot(plt.gcf())
-
-    # --- LOGOUT BUTTON ---
-    st.sidebar.markdown("---")
-    if st.sidebar.button("Logout"):
-        st.session_state.logged_in = False
-        st.session_state.username = ""
-        st.experimental_rerun()
