@@ -162,6 +162,35 @@ else:
         else:
             st.sidebar.error("Exercise name cannot be empty.")
 
+    # --------- Edit Past Entries ---------
+    st.sidebar.header("✏️ Edit Past Entries")
+    
+    if df.empty:
+        st.sidebar.info("No workouts to edit yet.")
+    else:
+        # Pick a workout to edit
+        df_sorted = df.sort_values("Date", ascending=False).reset_index(drop=True)
+        display_options = [f"{row['Date']} - {row['Exercise']} ({row['Weight']}kg x {row['Reps']})" for _, row in df_sorted.iterrows()]
+        selected_index = st.sidebar.selectbox("Select entry to edit", range(len(display_options)), format_func=lambda i: display_options[i])
+    
+        # Show editable fields
+        selected_row = df_sorted.iloc[selected_index]
+        edit_date = st.sidebar.date_input("Date", pd.to_datetime(selected_row["Date"]))
+        edit_exercise = st.sidebar.text_input("Exercise", selected_row["Exercise"])
+        edit_weight = st.sidebar.number_input("Weight (kg)", value=float(selected_row["Weight"]), step=0.5)
+        edit_reps = st.sidebar.number_input("Reps", value=int(selected_row["Reps"]), step=1)
+    
+        if st.sidebar.button("💾 Save Changes"):
+            df.loc[
+                (df["Date"] == selected_row["Date"]) &
+                (df["Exercise"] == selected_row["Exercise"]),
+                ["Date", "Exercise", "Weight", "Reps"]
+            ] = [edit_date, edit_exercise, edit_weight, edit_reps]
+    
+            df.to_csv(csv_file, index=False)
+            st.sidebar.success("Workout updated!")
+            st.rerun()
+
     # --------- Exercise filter ---------
     exercise_list = df["Exercise"].unique().tolist()
     selected_exercises = st.multiselect(
