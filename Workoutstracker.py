@@ -57,13 +57,13 @@ def login_user(username, password):
     st.session_state.username = username
     st.success(f"Logged in as {username}")
     # Force rerun so UI updates immediately
-    st.experimental_set_query_params(_rerun=str(datetime.now()))
+    st.query_params(_rerun=str(datetime.now()))
     return True
 
 def logout_user():
     st.session_state.logged_in = False
     st.session_state.username = ""
-    st.experimental_set_query_params(_rerun=str(datetime.now()))
+    st.query_params(_rerun=str(datetime.now()))
 
 # --------- Login / Create Account ---------
 if not st.session_state.logged_in:
