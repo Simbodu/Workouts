@@ -65,6 +65,34 @@ def logout_user():
     st.session_state.logged_in = False
     st.session_state.username = ""
 
+def delete_account(username, password):
+    users = st.session_state.users
+
+    # Verify account exists and password matches
+    if username not in users:
+        st.error("User does not exist.")
+        return False
+    if users[username] != hash_password(password):
+        st.error("Incorrect password.")
+        return False
+
+    # Delete user's folder
+    user_folder = os.path.join(BASE_FOLDER, username)
+    if os.path.exists(user_folder):
+        import shutil
+        shutil.rmtree(user_folder)
+
+    # Remove user from the list
+    del users[username]
+    save_users()
+
+    # Log user out
+    st.session_state.logged_in = False
+    st.session_state.username = ""
+    st.success("Your account has been deleted.")
+    st.rerun()
+    return True
+
 # --------- Login / Create Account ---------
 if not st.session_state.logged_in:
     st.sidebar.header("🔑 Login or Create Account")
@@ -86,6 +114,12 @@ else:
     st.sidebar.write(f"👤 Logged in as: {st.session_state.username}")
     if st.sidebar.button("Logout"):
         logout_user()
+
+    with st.sidebar.expander("⚠️ Delete Account"):
+    st.warning("This will permanently delete your account and all data.")
+    confirm_password = st.text_input("Confirm Password", type="password", key="delete_pwd")
+    if st.button("Delete My Account"):
+        delete_account(st.session_state.username, confirm_password)
 
     # --------- Paths and CSV ---------
     user_folder = os.path.join(BASE_FOLDER, st.session_state.username)
