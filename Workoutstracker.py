@@ -6,6 +6,7 @@ from datetime import datetime
 import os
 import hashlib
 import json
+import io
 
 # --------- Setup ---------
 BASE_FOLDER = "user_folders"
@@ -121,7 +122,7 @@ else:
         if st.button("Delete My Account"):
             delete_account(st.session_state.username, confirm_password)
     
-        # --------- Paths and CSV ---------
+        # Paths and CSV
         user_folder = os.path.join(BASE_FOLDER, st.session_state.username)
         os.makedirs(user_folder, exist_ok=True)
         csv_file = os.path.join(user_folder, "workouts.csv")
@@ -208,7 +209,54 @@ else:
             df.to_csv(csv_file, index=False)
             st.sidebar.success("Workout updated!")
             st.rerun()
-
+    
+    # --------- Data Management Buttons ---------
+    st.sidebar.header("📂 Manage Workout Data")
+    
+    user_csv = os.path.join(BASE_FOLDER, st.session_state.username, "workouts.csv")
+    
+    # 1️⃣ Download CSV
+    if os.path.exists(user_csv):
+        with open(user_csv, "rb") as f:
+            st.sidebar.download_button(
+                label="💾 Download Workout CSV",
+                data=f,
+                file_name=f"{st.session_state.username}_workouts.csv",
+                mime="text/csv"
+            )
+    
+    # 2️⃣ Upload CSV
+    st.sidebar.subheader("⬆️ Upload Workout CSV")
+    uploaded_file = st.sidebar.file_uploader(
+        "Choose CSV to replace existing data",
+        type="csv"
+    )
+    if uploaded_file is not None:
+        try:
+            # Try reading the CSV
+            new_df = pd.read_csv(uploaded_file)
+            # Check columns
+            required_cols = ["Date", "Exercise", "Weight", "Reps"]
+            if all(col in new_df.columns for col in required_cols):
+                # Convert Date column
+                new_df["Date"] = pd.to_datetime(new_df["Date"], errors="coerce")
+                new_df = new_df.dropna(subset=required_cols)
+                # Save
+                new_df.to_csv(user_csv, index=False)
+                st.sidebar.success("Uploaded CSV successfully!")
+            else:
+                st.sidebar.error(f"CSV must contain columns: {', '.join(required_cols)}")
+        except Exception as e:
+            st.sidebar.error(f"Failed to read CSV: {e}")
+    
+    # 3️⃣ Reset Account Data
+    st.sidebar.subheader("⚠️ Reset Account Data")
+    confirm_reset = st.sidebar.checkbox("Confirm reset")
+    if confirm_reset and st.sidebar.button("Delete All Workout Data"):
+        if os.path.exists(user_csv):
+            os.remove(user_csv)
+        st.sidebar.success("All workout data deleted. Your account remains intact.")
+    
     # --------- Exercise filter ---------
     exercise_list = df["Exercise"].unique().tolist()
     selected_exercises = st.multiselect(
