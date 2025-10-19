@@ -129,6 +129,7 @@ else:
         if os.path.exists(csv_file):
             df = pd.read_csv(csv_file)
             df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
+            df["Date"] = df["Date"].dt.date
             df = df.dropna(subset=["Date", "Weight", "Reps"])
         else:
             df = pd.DataFrame(columns=["Date", "Exercise", "Weight", "Reps"])
@@ -152,11 +153,10 @@ else:
         if exercise:
             new_row = pd.DataFrame([[date, exercise, weight, reps]],
                                    columns=["Date", "Exercise", "Weight", "Reps"])
-            df = pd.concat([df, new_row]).drop_duplicates(
-                subset=["Date", "Exercise"], keep="last")
-            df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
+            df = pd.concat([df, new_row]).drop_duplicates(subset=["Date", "Exercise"], keep="last")
+            # Keep Date as date only, no time
+            df["Date"] = pd.to_datetime(df["Date"], errors="coerce").dt.date
             df = df.dropna(subset=["Date", "Weight", "Reps"])
-            df["Date"] = df["Date"].dt.strftime("%Y-%m-%d")
             df.to_csv(csv_file, index=False)
             st.sidebar.success(f"Saved {exercise}!")
         else:
