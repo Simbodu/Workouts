@@ -116,22 +116,22 @@ else:
         logout_user()
 
     with st.sidebar.expander("⚠️ Delete Account"):
-    st.warning("This will permanently delete your account and all data.")
-    confirm_password = st.text_input("Confirm Password", type="password", key="delete_pwd")
-    if st.button("Delete My Account"):
-        delete_account(st.session_state.username, confirm_password)
-
-    # --------- Paths and CSV ---------
-    user_folder = os.path.join(BASE_FOLDER, st.session_state.username)
-    os.makedirs(user_folder, exist_ok=True)
-    csv_file = os.path.join(user_folder, "workouts.csv")
-
-    if os.path.exists(csv_file):
-        df = pd.read_csv(csv_file)
-        df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
-        df = df.dropna(subset=["Date", "Weight", "Reps"])
-    else:
-        df = pd.DataFrame(columns=["Date", "Exercise", "Weight", "Reps"])
+        st.warning("This will permanently delete your account and all data.")
+        confirm_password = st.text_input("Confirm Password", type="password", key="delete_pwd")
+        if st.button("Delete My Account"):
+            delete_account(st.session_state.username, confirm_password)
+    
+        # --------- Paths and CSV ---------
+        user_folder = os.path.join(BASE_FOLDER, st.session_state.username)
+        os.makedirs(user_folder, exist_ok=True)
+        csv_file = os.path.join(user_folder, "workouts.csv")
+    
+        if os.path.exists(csv_file):
+            df = pd.read_csv(csv_file)
+            df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
+            df = df.dropna(subset=["Date", "Weight", "Reps"])
+        else:
+            df = pd.DataFrame(columns=["Date", "Exercise", "Weight", "Reps"])
 
     # --------- Log Workout ---------
     st.sidebar.header("💪 Log Workout")
