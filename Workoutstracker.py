@@ -36,9 +36,12 @@ def save_users():
     with open(USERS_FILE, "w") as f:
         json.dump(st.session_state.users, f)
 
-def create_account(username, password):
+def create_account(username, password, password_confirm):
     if username in st.session_state.users:
         st.error("User already exists.")
+        return False
+    if password != password_confirm:
+        st.error("Password must match.")
         return False
     st.session_state.users[username] = hash_password(password)
     save_users()
@@ -55,7 +58,7 @@ def login_user(username, password):
         return False
     st.session_state.logged_in = True
     st.session_state.username = username
-    st.success(f"Logged in as {username}")
+    st.success(f"Logged in as {username}. Please click again to enter.")
     return True
 
 def logout_user():
@@ -74,7 +77,8 @@ if not st.session_state.logged_in:
         login_user(username_input, password_input)
 
     if action == "Create Account" and st.sidebar.button("Create"):
-        create_account(username_input, password_input)
+        password_confirm = st.sidebar.text_input("Confirm Password", type="password")
+        create_account(username_input, password_input, password_confirm)
 
 # --------- Main App ---------
 else:
