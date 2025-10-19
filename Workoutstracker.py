@@ -36,48 +36,60 @@ def save_users():
     with open(USERS_FILE, "w") as f:
         json.dump(st.session_state.users, f)
 
-def create_account(username, password):
-    if username in st.session_state.users:
-        st.error("User already exists.")
-        return False
-    st.session_state.users[username] = hash_password(password)
-    save_users()
-    os.makedirs(os.path.join(BASE_FOLDER, username), exist_ok=True)
-    st.success("Account created! Please log in.")
-    return True
-
-def login_user(username, password):
-    if username not in st.session_state.users:
-        st.error("User does not exist.")
-        return False
-    if st.session_state.users[username] != hash_password(password):
-        st.error("Incorrect password.")
-        return False
-    st.session_state.logged_in = True
-    st.session_state.username = username
-    st.success(f"Logged in as {username}")
-    # Force rerun so UI updates immediately
-    st.set_query_params(_rerun=str(datetime.now()))
-    return True
-
-def logout_user():
+# Initialize session state
+if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
     st.session_state.username = ""
-    st.set_query_params(_rerun=str(datetime.now()))
+
+if "users" not in st.session_state:
+    # Load users from folder structure
+    if os.path.exists(BASE_FOLDER):
+        st.session_state.users = [f for f in os.listdir(BASE_FOLDER) if os.path.isdir(os.path.join(BASE_FOLDER, f))]
+    else:
+        os.makedirs(BASE_FOLDER)
+        st.session_state.users = []
 
 # --------- Login / Create Account ---------
 if not st.session_state.logged_in:
-    st.sidebar.header("🔑 Login or Create Account")
-    action = st.sidebar.radio("Action", ["Login", "Create Account"])
+    st.sidebar.header("Account")
+    action = st.sidebar.radio("Choose Action", ["Login", "Create Account"])
 
     username_input = st.sidebar.text_input("Username")
-    password_input = st.sidebar.text_input("Password", type="password")
+    password_input = st.sidebar.text_input("Password", type="password")  # For simplicity, store plain passwords for now
 
     if action == "Login" and st.sidebar.button("Login"):
-        login_user(username_input, password_input)
+        if username_input in st.session_state.users:
+            # Here you could check password if you implement password storage
+            st.session_state.logged_in = True
+            st.session_state.username = username_input
+            st.success(f"Logged in as {username_input}")
+        else:
+            st.error("Invalid username")
 
-    if action == "Create Account" and st.sidebar.button("Create"):
-        create_account(username_input, password_input)
+    elif action == "Create Account" and st.sidebar.button("Create Account"):
+        if not username_input or not password_input:
+            st.error("Username and password cannot be empty")
+        elif username_input in st.session_state.users:
+            st.error("Username already exists")
+        else:
+            # Create user folder and CSV
+            user_folder = os.path.join(BASE_FOLDER, username_input)
+            os.makedirs(user_folder, exist_ok=True)
+            csv_file = os.path.join(user_folder, "workouts.csv")
+            pd.DataFrame(columns=["Date", "Exercise", "Weight", "Reps"]).to_csv(csv_file, index=False)
+
+            st.session_state.users.append(username_input)
+            st.session_state.logged_in = True
+            st.session_state.username = username_input
+            st.success(f"Account created and logged in as {username_input}")
+
+# --------- Logged in UI ---------
+if st.session_state.logged_in:
+    st.sidebar.write(f"👤 Logged in as: {st.session_state.username}")
+    if st.sidebar.button("Logout"):
+        st.session_state.logged_in = False
+        st.session_state.username = ""
+        st.success("Logged out")
 
 # --------- Main App ---------
 else:
