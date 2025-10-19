@@ -216,7 +216,7 @@ else:
 
     # --------- Individual exercise charts ---------
     st.header(f"{st.session_state.username} - Workout Progress")
-    for exercise_name in selected_exercises:
+    for exercise_name in [ex for ex in selected_exercises if ex != "BodyWeight"]:
         data = df[df["Exercise"] == exercise_name].sort_values("Date")
         if data.empty:
             continue
