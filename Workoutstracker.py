@@ -168,25 +168,43 @@ else:
     if df.empty:
         st.sidebar.info("No workouts to edit yet.")
     else:
-        # Pick a workout to edit
+        # Sort newest first
         df_sorted = df.sort_values("Date", ascending=False).reset_index(drop=True)
         display_options = [f"{row['Date']} - {row['Exercise']} ({row['Weight']}kg x {row['Reps']})" for _, row in df_sorted.iterrows()]
         selected_index = st.sidebar.selectbox("Select entry to edit", range(len(display_options)), format_func=lambda i: display_options[i])
     
-        # Show editable fields
         selected_row = df_sorted.iloc[selected_index]
-        edit_date = st.sidebar.date_input("Date", pd.to_datetime(selected_row["Date"]))
-        edit_exercise = st.sidebar.text_input("Exercise", selected_row["Exercise"])
-        edit_weight = st.sidebar.number_input("Weight (kg)", value=float(selected_row["Weight"]), step=0.5)
-        edit_reps = st.sidebar.number_input("Reps", value=int(selected_row["Reps"]), step=1)
+    
+        st.sidebar.markdown("**Select what to change:**")
+        change_date = st.sidebar.checkbox("Date")
+        change_exercise = st.sidebar.checkbox("Exercise")
+        change_weight = st.sidebar.checkbox("Weight")
+        change_reps = st.sidebar.checkbox("Reps")
+    
+        # Editable fields (shown only if checked)
+        new_date = selected_row["Date"]
+        new_exercise = selected_row["Exercise"]
+        new_weight = selected_row["Weight"]
+        new_reps = selected_row["Reps"]
+    
+        if change_date:
+            new_date = st.sidebar.date_input("New Date", pd.to_datetime(selected_row["Date"]))
+        if change_exercise:
+            new_exercise = st.sidebar.text_input("New Exercise", selected_row["Exercise"])
+        if change_weight:
+            new_weight = st.sidebar.number_input("New Weight (kg)", value=float(selected_row["Weight"]), step=0.5)
+        if change_reps:
+            new_reps = st.sidebar.number_input("New Reps", value=int(selected_row["Reps"]), step=1)
     
         if st.sidebar.button("💾 Save Changes"):
-            df.loc[
+            mask = (
                 (df["Date"] == selected_row["Date"]) &
-                (df["Exercise"] == selected_row["Exercise"]),
-                ["Date", "Exercise", "Weight", "Reps"]
-            ] = [edit_date, edit_exercise, edit_weight, edit_reps]
+                (df["Exercise"] == selected_row["Exercise"]) &
+                (df["Weight"] == selected_row["Weight"]) &
+                (df["Reps"] == selected_row["Reps"])
+            )
     
+            df.loc[mask, ["Date", "Exercise", "Weight", "Reps"]] = [new_date, new_exercise, new_weight, new_reps]
             df.to_csv(csv_file, index=False)
             st.sidebar.success("Workout updated!")
             st.rerun()
