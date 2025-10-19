@@ -72,12 +72,13 @@ if not st.session_state.logged_in:
 
     username_input = st.sidebar.text_input("Username")
     password_input = st.sidebar.text_input("Password", type="password")
+    if action == "Create Account":
+        password_confirm = st.sidebar.text_input("Confirm Password", type="password")
 
     if action == "Login" and st.sidebar.button("Login"):
         login_user(username_input, password_input)
 
     if action == "Create Account" and st.sidebar.button("Create"):
-        password_confirm = st.sidebar.text_input("Confirm Password", type="password")
         create_account(username_input, password_input, password_confirm)
 
 # --------- Main App ---------
