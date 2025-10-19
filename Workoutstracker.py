@@ -149,12 +149,3 @@ if not df.empty:
     plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
     plt.gcf().autofmt_xdate(rotation=45)
     st.pyplot(plt.gcf())
-
-# --------- Quit button ---------
-st.sidebar.markdown("---")
-if st.sidebar.button("🛑 Quit App"):
-    st.sidebar.warning("Stopping Streamlit...")
-    parent = psutil.Process(os.getpid())
-    for child in parent.children(recursive=True):
-        child.kill()
-    parent.kill()
